@@ -1,26 +1,389 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+
+  --font-sans: var(--font-sans);
   --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-sans);
+
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* =========================================================
+   WACCI BRAND COLOURS
+   ========================================================= */
+
+:root {
+  /* WACCI Green */
+  --wacci-green: #16803c;
+  --wacci-green-dark: #0f5c2b;
+  --wacci-green-darker: #09451f;
+  --wacci-green-light: #ecfdf3;
+  --wacci-green-soft: #dcfce7;
+
+  /* Supporting colours */
+  --wacci-gold: #d4a72c;
+
+  /* Status colours */
+  --status-approved: #16a34a;
+  --status-approved-bg: #f0fdf4;
+
+  --status-pending: #ca8a04;
+  --status-pending-bg: #fefce8;
+
+  --status-rejected: #dc2626;
+  --status-rejected-bg: #fef2f2;
+
+  /* Application */
+  --background: #f6f9f7;
+  --foreground: #17231b;
+
+  --card: #ffffff;
+  --card-foreground: #17231b;
+
+  --popover: #ffffff;
+  --popover-foreground: #17231b;
+
+  --primary: #16803c;
+  --primary-foreground: #ffffff;
+
+  --secondary: #eef5f0;
+  --secondary-foreground: #17351f;
+
+  --muted: #f1f5f2;
+  --muted-foreground: #64756a;
+
+  --accent: #ecfdf3;
+  --accent-foreground: #16803c;
+
+  --destructive: #dc2626;
+
+  --border: #dce7df;
+  --input: #cbd8cf;
+  --ring: #86c99e;
+
+  --chart-1: #16803c;
+  --chart-2: #22c55e;
+  --chart-3: #d4a72c;
+  --chart-4: #dc2626;
+  --chart-5: #0f5c2b;
+
+  --radius: 0.75rem;
+
+  /* Sidebar */
+  --sidebar: #ffffff;
+  --sidebar-foreground: #17231b;
+  --sidebar-primary: #16803c;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #ecfdf3;
+  --sidebar-accent-foreground: #16803c;
+  --sidebar-border: #dce7df;
+  --sidebar-ring: #86c99e;
+}
+
+/* =========================================================
+   DARK MODE
+   ========================================================= */
+
+.dark {
+  --background: #07140c;
+  --foreground: #f3faf5;
+
+  --card: #0e2115;
+  --card-foreground: #f3faf5;
+
+  --popover: #0e2115;
+  --popover-foreground: #f3faf5;
+
+  --primary: #22a653;
+  --primary-foreground: #ffffff;
+
+  --secondary: #17301f;
+  --secondary-foreground: #f3faf5;
+
+  --muted: #17301f;
+  --muted-foreground: #9caf9f;
+
+  --accent: #12351f;
+  --accent-foreground: #86efac;
+
+  --destructive: #ef4444;
+
+  --border: #294333;
+  --input: #294333;
+  --ring: #22a653;
+
+  --chart-1: #22a653;
+  --chart-2: #4ade80;
+  --chart-3: #eab308;
+  --chart-4: #ef4444;
+  --chart-5: #15803d;
+
+  --sidebar: #0e2115;
+  --sidebar-foreground: #f3faf5;
+  --sidebar-primary: #22a653;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #17301f;
+  --sidebar-accent-foreground: #86efac;
+  --sidebar-border: #294333;
+  --sidebar-ring: #22a653;
+}
+
+/* =========================================================
+   BASE
+   ========================================================= */
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    @apply font-sans;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: #94a3a0;
+  }
+
+  ::selection {
+    background: #bbf7d0;
+    color: #09451f;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* =========================================================
+   SCROLLBAR
+   ========================================================= */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f2;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #b7c9bc;
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #86a993;
+}
+
+/* =========================================================
+   TRANSITIONS
+   ========================================================= */
+
+button,
+a,
+input,
+textarea,
+select {
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+/* =========================================================
+   FORM ELEMENTS
+   ========================================================= */
+
+input,
+textarea,
+select {
+  outline: none;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--wacci-green) !important;
+  box-shadow: 0 0 0 3px rgba(22, 128, 60, 0.12);
+}
+
+input:disabled,
+textarea:disabled,
+select:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* =========================================================
+   BUTTONS
+   ========================================================= */
+
+button:not(:disabled):active {
+  transform: scale(0.98);
+}
+
+/* =========================================================
+   CARDS
+   ========================================================= */
+
+.shadow-sm {
+  box-shadow:
+    0 1px 2px rgba(9, 69, 31, 0.04),
+    0 4px 14px rgba(9, 69, 31, 0.05);
+}
+
+/* =========================================================
+   STATUS HELPERS
+   ========================================================= */
+
+.status-pending {
+  background: var(--status-pending-bg);
+  color: var(--status-pending);
+}
+
+.status-approved {
+  background: var(--status-approved-bg);
+  color: var(--status-approved);
+}
+
+.status-rejected {
+  background: var(--status-rejected-bg);
+  color: var(--status-rejected);
+}
+
+/* =========================================================
+   WACCI BRAND HELPERS
+   ========================================================= */
+
+.wacci-gradient {
+  background: linear-gradient(
+    135deg,
+    var(--wacci-green-darker) 0%,
+    var(--wacci-green) 100%
+  );
+}
+
+.wacci-gradient-light {
+  background: linear-gradient(135deg, #ecfdf3 0%, #ffffff 100%);
+}
+
+.wacci-text-gradient {
+  background: linear-gradient(
+    135deg,
+    var(--wacci-green-dark),
+    var(--wacci-green)
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 640px) {
+  h1 {
+    letter-spacing: -0.025em;
+  }
+
+  h2 {
+    letter-spacing: -0.02em;
+  }
+}
+
+/* =========================================================
+   ACCESSIBILITY
+   ========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }
