@@ -1,7 +1,7 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 
@@ -25,11 +25,14 @@ type LeaveType = {
   name: string;
 };
 
-function LeaveDetailsContent() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
+type LeaveDetailsClientProps = {
+  requestId: string;
+};
 
-  const requestId = searchParams.get("id");
+export default function LeaveDetailsClient({
+  requestId,
+}: LeaveDetailsClientProps) {
+  const router = useRouter();
 
   const [request, setRequest] = useState<LeaveRequest | null>(null);
   const [leaveType, setLeaveType] = useState<LeaveType | null>(null);
@@ -347,23 +350,5 @@ function LeaveDetailsContent() {
         </div>
       </div>
     </main>
-  );
-}
-
-function LeaveDetailsLoading() {
-  return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-100">
-      <div className="rounded-2xl bg-white px-8 py-6 shadow-sm">
-        <p className="text-slate-600">Loading leave details...</p>
-      </div>
-    </main>
-  );
-}
-
-export default function LeaveDetailsPage() {
-  return (
-    <Suspense fallback={<LeaveDetailsLoading />}>
-      <LeaveDetailsContent />
-    </Suspense>
   );
 }
