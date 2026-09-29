@@ -1,7 +1,7 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 
@@ -17,96 +17,191 @@ type LeaveRequest = {
   admin_comment: string | null;
   acting_person: string | null;
   created_at: string;
-  updated_at: string | null;
+
+  profiles: {
+    full_name: string;
+    staff_id: string;
+  } | null;
+
+  leave_types: {
+    name: string;
+  } | null;
 };
 
-type LeaveType = {
-  id: string;
-  name: string;
-};
-
-function LeaveDetailsContent() {
+export default function AdminPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
 
-  const requestId = searchParams.get("id");
-
-  const [request, setRequest] = useState<LeaveRequest | null>(null);
-  const [leaveType, setLeaveType] = useState<LeaveType | null>(null);
+  const [requests, setRequests] = useState<LeaveRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState<string | null>(null);
+
+  async function loadRequests() {
+    setLoading(true);
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      // ==============================
+      // ADMIN AUTHENTICATION DIAGNOSTIC
+      // ==============================
+
+      console.log("=================================");
+      console.log("ADMIN USER:", user?.id, user?.email);
+      console.log("=================================");
+
+      if (!user) {
+        console.error("NO AUTHENTICATED USER FOUND");
+        router.push("/admin-login");
+        return;
+      }
+
+      // ==============================
+      // TEST ADMIN PROFILE
+      // ==============================
+
+      const { data: adminProfile, error: adminProfileError } = await supabase
+        .from("profiles")
+        .select(
+          `
+            id,
+            full_name,
+            email,
+            department_id
+          `,
+        )
+        .eq("id", user.id)
+        .single();
+
+      console.log("ADMIN PROFILE:", adminProfile);
+      console.log("ADMIN PROFILE ERROR:", adminProfileError);
+
+      // ==============================
+      // TEST LEAVE REQUEST ACCESS
+      // ==============================
+
+      const { data: testRequests, error: testError } = await supabase
+        .from("leave_requests")
+        .select("id, user_id, status");
+
+      console.log("=================================");
+      console.log("ADMIN TEST REQUESTS:", testRequests);
+      console.log("ADMIN TEST ERROR:", testError);
+      console.log("=================================");
+
+      // ==============================
+      // MAIN LEAVE REQUEST QUERY
+      // ==============================
+
+      const { data, error } = await supabase
+        .from("leave_requests")
+        .select(
+          `
+          id,
+          user_id,
+          leave_type_id,
+          start_date,
+          return_date,
+          total_days,
+          reason,
+          status,
+          admin_comment,
+          acting_person,
+          created_at,
+          profiles (
+            full_name,
+            staff_id
+          ),
+          leave_types (
+            name
+          )
+        `,
+        )
+        .order("created_at", { ascending: false });
+
+      console.log("MAIN LEAVE REQUEST DATA:", data);
+      console.log("MAIN LEAVE REQUEST ERROR:", error);
+
+      if (error) {
+        console.error("Admin leave requests error:", error);
+        toast.error(error.message);
+        return;
+      }
+
+      setRequests((data || []) as unknown as LeaveRequest[]);
+    } catch (error) {
+      console.error("Unexpected error:", error);
+      toast.error("Unable to load leave requests.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    async function loadLeaveDetails() {
-      try {
-        if (!requestId) {
-          toast.error("Leave request not found.");
-          router.push("/dashboard");
-          return;
-        }
+    loadRequests();
+  }, []);
 
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
+  async function updateRequest(
+    requestId: string,
+    status: "Approved" | "Rejected",
+  ) {
+    setUpdating(requestId);
 
-        if (!user) {
-          router.push("/login");
-          return;
-        }
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-        const { data, error } = await supabase
-          .from("leave_requests")
-          .select(
-            `
-            id,
-            user_id,
-            leave_type_id,
-            start_date,
-            return_date,
-            total_days,
-            reason,
-            status,
-            admin_comment,
-            acting_person,
-            created_at,
-            updated_at
-          `,
-          )
-          .eq("id", requestId)
-          .eq("user_id", user.id)
-          .single();
-
-        if (error) {
-          console.error("Leave details error:", error);
-          toast.error("Unable to load leave request.");
-          router.push("/dashboard");
-          return;
-        }
-
-        setRequest(data);
-
-        if (data.leave_type_id) {
-          const { data: leaveTypeData, error: leaveTypeError } = await supabase
-            .from("leave_types")
-            .select("id, name")
-            .eq("id", data.leave_type_id)
-            .single();
-
-          if (leaveTypeError) {
-            console.error("Leave type error:", leaveTypeError);
-          } else {
-            setLeaveType(leaveTypeData);
-          }
-        }
-      } catch (error) {
-        console.error("Unexpected error:", error);
-        toast.error("Something went wrong.");
-      } finally {
-        setLoading(false);
+      if (!user) {
+        toast.error("Your session has expired. Please login again.");
+        router.push("/admin-login");
+        return;
       }
-    }
 
-    loadLeaveDetails();
-  }, [requestId, router]);
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", user.id)
+        .single();
+
+      if (profileError) {
+        console.error("Admin profile error:", profileError);
+      }
+
+      const { error } = await supabase
+        .from("leave_requests")
+        .update({
+          status,
+          acting_person: profile?.full_name || "Administrator",
+          admin_comment:
+            status === "Approved"
+              ? "Leave request approved."
+              : "Leave request rejected.",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", requestId);
+
+      if (error) {
+        console.error("Update request error:", error);
+        toast.error(error.message);
+        return;
+      }
+
+      toast.success(
+        status === "Approved"
+          ? "Leave request approved."
+          : "Leave request rejected.",
+      );
+
+      await loadRequests();
+    } catch (error) {
+      console.error("Unexpected update error:", error);
+      toast.error("Unable to update leave request.");
+    } finally {
+      setUpdating(null);
+    }
+  }
 
   function formatDate(date: string) {
     return new Date(`${date}T00:00:00`).toLocaleDateString("en-GB", {
@@ -116,69 +211,46 @@ function LeaveDetailsContent() {
     });
   }
 
-  function formatDateTime(date: string) {
-    return new Date(date).toLocaleString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  }
-
   function getStatusClass(status: string) {
     if (status === "Approved") {
-      return "bg-green-100 text-green-700 border-green-200";
+      return "bg-green-100 text-green-700";
     }
 
     if (status === "Rejected") {
-      return "bg-red-100 text-red-700 border-red-200";
+      return "bg-red-100 text-red-700";
     }
 
-    return "bg-yellow-100 text-yellow-700 border-yellow-200";
+    return "bg-yellow-100 text-yellow-700";
   }
 
-  function getStatusMessage(status: string) {
-    if (status === "Approved") {
-      return "Your leave request has been approved.";
-    }
+  const pendingCount = requests.filter(
+    (request) => request.status === "Pending",
+  ).length;
 
-    if (status === "Rejected") {
-      return "Your leave request has been rejected.";
-    }
+  const approvedCount = requests.filter(
+    (request) => request.status === "Approved",
+  ).length;
 
-    return "Your leave request is waiting for administrator review.";
-  }
-
-  if (loading) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-100">
-        <div className="rounded-2xl bg-white px-8 py-6 shadow-sm">
-          <p className="text-slate-600">Loading leave details...</p>
-        </div>
-      </main>
-    );
-  }
-
-  if (!request) {
-    return null;
-  }
+  const rejectedCount = requests.filter(
+    (request) => request.status === "Rejected",
+  ).length;
 
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-8 md:px-8">
-      <div className="mx-auto max-w-5xl">
+      <div className="mx-auto max-w-7xl">
+        {/* Header */}
         <div className="mb-8 flex flex-col justify-between gap-4 md:flex-row md:items-center">
           <div>
             <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">
-              Staff Portal
+              Administration
             </p>
 
             <h1 className="mt-2 text-4xl font-bold text-slate-900">
-              Leave Request Details
+              Leave Management
             </h1>
 
             <p className="mt-2 text-lg text-slate-600">
-              View the complete details of your leave application.
+              Review and manage staff leave requests.
             </p>
           </div>
 
@@ -190,180 +262,209 @@ function LeaveDetailsContent() {
           </button>
         </div>
 
-        <div
-          className={`mb-6 rounded-2xl border p-6 ${getStatusClass(
-            request.status,
-          )}`}
-        >
-          <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-            <div>
-              <p className="text-sm font-medium">Leave Request Status</p>
+        {/* Summary Cards */}
+        <div className="mb-8 grid grid-cols-1 gap-5 md:grid-cols-3">
+          <div className="rounded-2xl bg-white p-6 shadow-sm">
+            <p className="text-sm font-medium text-slate-500">
+              Pending Requests
+            </p>
 
-              <h2 className="mt-1 text-3xl font-bold">{request.status}</h2>
+            <p className="mt-2 text-4xl font-bold text-yellow-600">
+              {pendingCount}
+            </p>
+          </div>
 
-              <p className="mt-2">{getStatusMessage(request.status)}</p>
-            </div>
+          <div className="rounded-2xl bg-white p-6 shadow-sm">
+            <p className="text-sm font-medium text-slate-500">
+              Approved Requests
+            </p>
 
-            <span className="w-fit rounded-full bg-white px-5 py-2 text-sm font-bold">
-              {request.status}
-            </span>
+            <p className="mt-2 text-4xl font-bold text-green-600">
+              {approvedCount}
+            </p>
+          </div>
+
+          <div className="rounded-2xl bg-white p-6 shadow-sm">
+            <p className="text-sm font-medium text-slate-500">
+              Rejected Requests
+            </p>
+
+            <p className="mt-2 text-4xl font-bold text-red-600">
+              {rejectedCount}
+            </p>
           </div>
         </div>
 
+        {/* Leave Requests */}
         <div className="rounded-3xl bg-white p-6 shadow-sm md:p-8">
-          <div className="mb-8">
+          <div className="mb-6">
             <h2 className="text-2xl font-bold text-slate-900">
-              Leave Information
+              Staff Leave Requests
             </h2>
 
             <p className="mt-1 text-slate-600">
-              Information submitted with your leave application.
+              Review submitted leave applications.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-            <div className="rounded-2xl bg-slate-50 p-5">
-              <p className="text-sm text-slate-500">Leave Type</p>
-
-              <p className="mt-2 text-xl font-semibold text-slate-900">
-                {leaveType?.name || "Not specified"}
+          {loading ? (
+            <div className="py-16 text-center">
+              <p className="text-lg text-slate-500">
+                Loading leave requests...
               </p>
             </div>
+          ) : requests.length === 0 ? (
+            <div className="rounded-2xl bg-slate-50 py-16 text-center">
+              <p className="text-xl font-semibold text-slate-700">
+                No leave requests found
+              </p>
 
-            <div className="rounded-2xl bg-blue-50 p-5">
-              <p className="text-sm text-slate-500">Number of Days</p>
-
-              <p className="mt-2 text-xl font-bold text-blue-600">
-                {request.total_days} {request.total_days === 1 ? "day" : "days"}
+              <p className="mt-2 text-slate-500">
+                Submitted leave requests will appear here.
               </p>
             </div>
+          ) : (
+            <div className="space-y-6">
+              {requests.map((request) => {
+                const profile = request.profiles;
+                const leaveType = request.leave_types;
 
-            <div className="rounded-2xl bg-slate-50 p-5">
-              <p className="text-sm text-slate-500">Start Date</p>
+                return (
+                  <div
+                    key={request.id}
+                    className="rounded-2xl border border-slate-200 bg-slate-50 p-6"
+                  >
+                    {/* Staff Information */}
+                    <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
+                      <div>
+                        <p className="text-sm font-medium text-slate-500">
+                          Staff Member
+                        </p>
 
-              <p className="mt-2 text-xl font-semibold text-slate-900">
-                {formatDate(request.start_date)}
-              </p>
-            </div>
+                        <h3 className="mt-1 text-2xl font-bold text-slate-900">
+                          {profile?.full_name || "Unknown Staff"}
+                        </h3>
 
-            <div className="rounded-2xl bg-slate-50 p-5">
-              <p className="text-sm text-slate-500">Return Date</p>
+                        <p className="mt-1 text-sm text-slate-500">
+                          Staff ID: {profile?.staff_id || "Not available"}
+                        </p>
+                      </div>
 
-              <p className="mt-2 text-xl font-semibold text-slate-900">
-                {formatDate(request.return_date)}
-              </p>
-            </div>
-          </div>
+                      <span
+                        className={`inline-flex w-fit rounded-full px-4 py-2 text-sm font-semibold ${getStatusClass(
+                          request.status,
+                        )}`}
+                      >
+                        {request.status}
+                      </span>
+                    </div>
 
-          <div className="mt-5 rounded-2xl bg-slate-50 p-5">
-            <p className="text-sm text-slate-500">Reason for Leave</p>
+                    {/* Leave Details */}
+                    <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-4">
+                      <div className="rounded-xl bg-white p-4">
+                        <p className="text-sm text-slate-500">Leave Type</p>
 
-            <p className="mt-2 text-lg leading-7 text-slate-800">
-              {request.reason}
-            </p>
-          </div>
+                        <p className="mt-1 font-semibold text-slate-900">
+                          {leaveType?.name || "Not specified"}
+                        </p>
+                      </div>
 
-          <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-2">
-            <div className="rounded-2xl bg-slate-50 p-5">
-              <p className="text-sm text-slate-500">Submitted On</p>
+                      <div className="rounded-xl bg-white p-4">
+                        <p className="text-sm text-slate-500">Start Date</p>
 
-              <p className="mt-2 font-semibold text-slate-900">
-                {formatDateTime(request.created_at)}
-              </p>
-            </div>
+                        <p className="mt-1 font-semibold text-slate-900">
+                          {formatDate(request.start_date)}
+                        </p>
+                      </div>
 
-            {request.updated_at && (
-              <div className="rounded-2xl bg-slate-50 p-5">
-                <p className="text-sm text-slate-500">Last Updated</p>
+                      <div className="rounded-xl bg-white p-4">
+                        <p className="text-sm text-slate-500">Return Date</p>
 
-                <p className="mt-2 font-semibold text-slate-900">
-                  {formatDateTime(request.updated_at)}
-                </p>
-              </div>
-            )}
-          </div>
+                        <p className="mt-1 font-semibold text-slate-900">
+                          {formatDate(request.return_date)}
+                        </p>
+                      </div>
 
-          {request.status !== "Pending" && (
-            <div className="mt-8">
-              <h3 className="text-2xl font-bold text-slate-900">
-                Administrator Response
-              </h3>
+                      <div className="rounded-xl bg-blue-50 p-4">
+                        <p className="text-sm text-slate-500">Number of Days</p>
 
-              <div
-                className={`mt-4 rounded-2xl p-6 ${
-                  request.status === "Approved" ? "bg-green-50" : "bg-red-50"
-                }`}
-              >
-                <p className="text-sm text-slate-500">Administrator Comment</p>
+                        <p className="mt-1 font-bold text-blue-600">
+                          {request.total_days}{" "}
+                          {request.total_days === 1 ? "day" : "days"}
+                        </p>
+                      </div>
+                    </div>
 
-                <p className="mt-2 text-lg font-medium text-slate-900">
-                  {request.admin_comment ||
-                    "No administrator comment was provided."}
-                </p>
+                    {/* Reason */}
+                    <div className="mt-4 rounded-xl bg-white p-4">
+                      <p className="text-sm text-slate-500">Reason for Leave</p>
 
-                {request.acting_person && (
-                  <div className="mt-4 border-t border-slate-200 pt-4">
-                    <p className="text-sm text-slate-500">Actioned By</p>
+                      <p className="mt-2 text-slate-800">{request.reason}</p>
+                    </div>
 
-                    <p className="mt-1 font-semibold text-slate-900">
-                      {request.acting_person}
+                    {/* Admin Comment */}
+                    {request.admin_comment && (
+                      <div className="mt-4 rounded-xl bg-white p-4">
+                        <p className="text-sm text-slate-500">
+                          Administrator Comment
+                        </p>
+
+                        <p className="mt-2 text-slate-800">
+                          {request.admin_comment}
+                        </p>
+
+                        {request.acting_person && (
+                          <p className="mt-2 text-sm text-slate-500">
+                            Actioned by: {request.acting_person}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Buttons */}
+                    {request.status === "Pending" && (
+                      <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                        <button
+                          onClick={() => updateRequest(request.id, "Approved")}
+                          disabled={updating === request.id}
+                          className="flex-1 rounded-xl bg-green-600 px-5 py-3 font-semibold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {updating === request.id
+                            ? "Updating..."
+                            : "Approve Leave"}
+                        </button>
+
+                        <button
+                          onClick={() => updateRequest(request.id, "Rejected")}
+                          disabled={updating === request.id}
+                          className="flex-1 rounded-xl bg-red-600 px-5 py-3 font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {updating === request.id
+                            ? "Updating..."
+                            : "Reject Leave"}
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Submitted Date */}
+                    <p className="mt-5 text-sm text-slate-500">
+                      Submitted{" "}
+                      {new Date(request.created_at).toLocaleDateString(
+                        "en-GB",
+                        {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                        },
+                      )}
                     </p>
                   </div>
-                )}
-              </div>
+                );
+              })}
             </div>
           )}
-
-          {request.status === "Pending" && (
-            <div className="mt-8 rounded-2xl bg-yellow-50 p-6">
-              <h3 className="text-lg font-bold text-yellow-800">
-                Awaiting Administrator Review
-              </h3>
-
-              <p className="mt-2 text-yellow-700">
-                Your leave request has been submitted successfully and is
-                currently waiting for approval. You will be able to see the
-                administrator&apos;s response here once your request has been
-                reviewed.
-              </p>
-            </div>
-          )}
-
-          <div className="mt-8 flex flex-col gap-4 sm:flex-row">
-            <button
-              onClick={() => router.push("/dashboard")}
-              className="flex-1 rounded-xl border border-slate-300 bg-white px-6 py-4 font-semibold text-slate-700 transition hover:bg-slate-50"
-            >
-              Back to Dashboard
-            </button>
-
-            <button
-              onClick={() => router.push("/leave")}
-              className="flex-1 rounded-xl bg-blue-600 px-6 py-4 font-semibold text-white transition hover:bg-blue-700"
-            >
-              Apply for New Leave
-            </button>
-          </div>
         </div>
       </div>
     </main>
-  );
-}
-
-function LeaveDetailsLoading() {
-  return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-100">
-      <div className="rounded-2xl bg-white px-8 py-6 shadow-sm">
-        <p className="text-slate-600">Loading leave details...</p>
-      </div>
-    </main>
-  );
-}
-
-export default function LeaveDetailsPage() {
-  return (
-    <Suspense fallback={<LeaveDetailsLoading />}>
-      <LeaveDetailsContent />
-    </Suspense>
   );
 }
