@@ -44,9 +44,41 @@ export default function LoginPage() {
         return;
       }
 
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("id, full_name, role")
+        .eq("id", data.user.id)
+        .single();
+
+      if (profileError || !profile) {
+        console.error("Profile loading error:", profileError);
+        await supabase.auth.signOut();
+        toast.error(
+          "Your account profile could not be found. Please contact the administrator.",
+        );
+        return;
+      }
+
+      const role = String(profile.role || "staff")
+        .toLowerCase()
+        .trim();
+
       toast.success("Login successful!");
 
-      router.push("/dashboard");
+      if (role === "director") {
+        router.replace("/director");
+      } else if (role === "admin") {
+        router.replace("/admin");
+      } else if (role === "staff") {
+        router.replace("/dashboard");
+      } else {
+        await supabase.auth.signOut();
+        toast.error(
+          "Your account has an unrecognized role. Please contact the administrator.",
+        );
+        return;
+      }
+
       router.refresh();
     } catch (error) {
       console.error("Unexpected login error:", error);
@@ -63,9 +95,7 @@ export default function LoginPage() {
           {/* LEFT BRANDING PANEL */}
           <div className="hidden bg-[#326536] p-10 text-white lg:flex lg:flex-col lg:justify-between xl:p-12">
             <div>
-              {/* WACCI BRAND */}
               <div className="mb-12 flex items-center gap-5">
-                {/* Logo */}
                 <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white p-2">
                   <img
                     src="/waccilogo.svg"
@@ -74,15 +104,12 @@ export default function LoginPage() {
                   />
                 </div>
 
-                {/* Brand Name */}
                 <div>
                   <p className="text-2xl font-bold tracking-wide">WACCI</p>
-
                   <p className="text-sm text-green-100">Staff Portal</p>
                 </div>
               </div>
 
-              {/* MAIN MESSAGE */}
               <div className="max-w-xl">
                 <p className="mb-5 text-sm font-semibold uppercase tracking-[0.2em] text-[#C4DD5A]">
                   Leave Management System
@@ -99,12 +126,10 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* ORGANISATION INFORMATION */}
             <div className="border-t border-white/20 pt-6">
               <p className="text-sm text-green-100">
                 West Africa Centre for Crop Improvement
               </p>
-
               <p className="mt-1 text-xs text-green-200">University of Ghana</p>
             </div>
           </div>
@@ -123,7 +148,6 @@ export default function LoginPage() {
                 </div>
 
                 <p className="text-xl font-bold text-[#326536]">WACCI</p>
-
                 <p className="text-sm text-slate-500">Staff Portal</p>
               </div>
 
@@ -157,6 +181,7 @@ export default function LoginPage() {
                       placeholder="Enter your email"
                       autoComplete="email"
                       disabled={loading}
+                      required
                       className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3.5 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#326536] focus:ring-4 focus:ring-[#326536]/10 disabled:bg-slate-100"
                     />
                   </div>
@@ -190,6 +215,7 @@ export default function LoginPage() {
                       placeholder="Enter your password"
                       autoComplete="current-password"
                       disabled={loading}
+                      required
                       className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3.5 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#326536] focus:ring-4 focus:ring-[#326536]/10 disabled:bg-slate-100"
                     />
                   </div>
